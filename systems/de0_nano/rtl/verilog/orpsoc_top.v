@@ -68,6 +68,7 @@ module orpsoc_top #(
 	output		sdram_clk_pad_o,
 
 	input		uart0_srx_pad_i,
+        output		uart0_vccio_pad_o,
 	output		uart0_stx_pad_o
 );
 
@@ -84,15 +85,19 @@ wire	wb_clk, wb_rst;
 wire	dbg_tck;
 wire	sdram_clk;
 wire	sdram_rst;
+wire    rst;
+wire	adbg_rst;   
 
 assign	sdram_clk_pad_o = sdram_clk;
 
+assign  wb_rst = rst | adbg_rst;
+   
 clkgen clkgen0 (
 	.sys_clk_pad_i	(sys_clk_pad_i),
 	.rst_n_pad_i	(rst_n_pad_i),
 	.async_rst_o	(async_rst),
 	.wb_clk_o	(wb_clk),
-	.wb_rst_o	(wb_rst),
+	.wb_rst_o	(rst),
 `ifdef SIM
 	.tck_pad_i	(tck_pad_i),
 	.dbg_tck_o	(dbg_tck),
@@ -200,14 +205,13 @@ wire	[3:0]	or1k_dbg_lss_o;
 wire	[1:0]	or1k_dbg_is_o;
 wire	[10:0]	or1k_dbg_wp_o;
 wire		or1k_dbg_bp_o;
-wire		or1k_dbg_rst;
 
 wire		sig_tick;
 
 `ifdef OR1200
 wire		or1k_rst;
 
-assign	or1k_rst= wb_rst | or1k_dbg_rst;
+assign	or1k_rst= wb_rst | adbg_rst;
 
 or1200_top #(.boot_adr(32'hf0000100))
 or1200_top0 (
@@ -360,7 +364,7 @@ mor1kx #(
 adbg_top dbg_if0 (
 	// OR1K interface
 	.cpu0_clk_i	(wb_clk),
-	.cpu0_rst_o	(or1k_dbg_rst),
+	.cpu0_rst_o	(adbg_rst),
 	.cpu0_addr_o	(or1k_dbg_adr_i),
 	.cpu0_data_o	(or1k_dbg_dat_i),
 	.cpu0_stb_o	(or1k_dbg_stb_i),
@@ -374,7 +378,7 @@ adbg_top dbg_if0 (
 	.tck_i		(dbg_tck),
 	.tdi_i		(jtag_tap_tdo),
 	.tdo_o		(dbg_if_tdo),
-	.rst_i		(wb_rst),
+	.rst_i		(rst),
 	.capture_dr_i	(jtag_tap_capture_dr),
 	.shift_dr_i	(jtag_tap_shift_dr),
 	.pause_dr_i	(jtag_tap_pause_dr),
@@ -542,6 +546,9 @@ uart_top uart16550_0 (
 	.dcd_pad_i	(1'b0)
 );
 
+   // A pad to provide ground to the UART dongle
+assign uart0_vccio_pad_o = 1'b1;
+   
 // 32-bit to 8-bit wishbone bus resize
 wb_data_resize wb_data_resize_uart0 (
 	// Wishbone Master interface
